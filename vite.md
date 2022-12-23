@@ -1,4 +1,4 @@
-# Bundling Assets (Vite)
+# Asset Bundling (Vite)
 
 - [Introduction](#introduction)
 - [Installation & Setup](#installation)
@@ -17,6 +17,7 @@
 - [Working With Blade & Routes](#working-with-blade-and-routes)
   - [Processing Static Assets With Vite](#blade-processing-static-assets)
   - [Refreshing On Save](#blade-refreshing-on-save)
+  - [Aliases](#blade-aliases)
 - [Custom Base URLs](#custom-base-urls)
 - [Environment Variables](#environment-variables)
 - [Disabling Vite In Tests](#disabling-vite-in-tests)
@@ -25,6 +26,7 @@
   - [Content Security Policy (CSP) Nonce](#content-security-policy-csp-nonce)
   - [Subresource Integrity (SRI)](#subresource-integrity-sri)
   - [Arbitrary Attributes](#arbitrary-attributes)
+- [Advanced Customization](#advanced-customization)
 
 <a name="introduction"></a>
 ## Introduction
@@ -129,19 +131,46 @@ The Laravel plugin also supports multiple entry points and advanced configuratio
 <a name="working-with-a-secure-development-server"></a>
 #### Working With A Secure Development Server
 
-If your development web server is running on HTTPS, including Valet's [secure command](/docs/{{version}}/valet#securing-sites), you may run into issues connecting to the Vite development server. You may configure Vite to also run on HTTPS by adding the following to your `vite.config.js` configuration file:
+If your local development web server is serving your application via HTTPS, you may run into issues connecting to the Vite development server.
+
+If you are using [Laravel Valet](/docs/{{version}}/valet) for local development and have run the [secure command](/docs/{{version}}/valet#securing-sites) against your application, you may configure the Vite development server to automatically use Valet's generated TLS certificates:
 
 ```js
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            // ...
+            valetTls: 'my-app.test', // [tl! add]
+        }),
+    ],
+});
+```
+
+When using another web server, you should generate a trusted certificate and manually configure Vite to use the generated certificates:
+
+```js
+// ...
+import fs from 'fs'; // [tl! add]
+
+const host = 'my-app.test'; // [tl! add]
+
 export default defineConfig({
     // ...
     server: { // [tl! add]
-        https: true, // [tl! add]
-        host: 'localhost', // [tl! add]
+        host, // [tl! add]
+        hmr: { host }, // [tl! add]
+        https: { // [tl! add]
+            key: fs.readFileSync(`/path/to/${host}.key`), // [tl! add]
+            cert: fs.readFileSync(`/path/to/${host}.crt`), // [tl! add]
+        }, // [tl! add]
     }, // [tl! add]
 });
 ```
 
-You will also need to accept the certificate warning for Vite's development server in your browser by following the "Local" link in your console when running the `npm run dev` command.
+If you are unable to generate a trusted certificate for your system, you may install and configure the [`@vitejs/plugin-basic-ssl` plugin](https://github.com/vitejs/vite-plugin-basic-ssl). When using untrusted certificates, you will need to accept the certificate warning for Vite's development server in your browser by following the "Local" link in your console when running the `npm run dev` command.
 
 <a name="loading-your-scripts-and-styles"></a>
 ### Loading Your Scripts And Styles
@@ -169,6 +198,17 @@ If you're importing your CSS via JavaScript, you only need to include the JavaSc
 ```
 
 The `@vite` directive will automatically detect the Vite development server and inject the Vite client to enable Hot Module Replacement. In build mode, the directive will load your compiled and versioned assets, including any imported CSS.
+
+If needed, you may also specify the build path of your compiled assets when invoking the `@vite` directive:
+
+```blade
+<!doctype html>
+<head>
+    {{-- Given build path is relative to public path. --}}
+
+    @vite('resources/js/app.js', 'vendor/courier/build')
+</head>
+```
 
 <a name="running-vite"></a>
 ## Running Vite
@@ -243,7 +283,7 @@ export default defineConfig({
                     // The Vue plugin will parse absolute URLs and treat them
                     // as absolute paths to files on disk. Setting this to
                     // `false` will leave absolute URLs un-touched so they can
-                    // reference assets in the public directly as expected.
+                    // reference assets in the public directory as expected.
                     includeAbsolute: false,
                 },
             },
@@ -296,7 +336,7 @@ createInertiaApp({
 <a name="url-processing"></a>
 ### URL Processing
 
-When using Vite and referencing assets in your application's HTML, CSS, or JS, there are a couple of things to consider. First, if you reference assets with an absolute path, Vite will not include the asset in the build; therefore, you should ensure that the asset is available in your public directory.
+When using Vite and referencing assets in your application's HTML, CSS, or JS, there are a couple of caveats to consider. First, if you reference assets with an absolute path, Vite will not include the asset in the build; therefore, you should ensure that the asset is available in your public directory.
 
 When referencing relative asset paths, you should remember that the paths are relative to the file where they are referenced. Any assets referenced via a relative path will be re-written, versioned, and bundled by Vite.
 
@@ -379,7 +419,13 @@ export default defineConfig({
 });
 ```
 
-When the `refresh` option is `true`, saving files in `resources/views/**`, `app/View/Components/**`, and `routes/**` will trigger the browser to perform a full page refresh while you are running `npm run dev`.
+When the `refresh` option is `true`, saving files in the following directories will trigger the browser to perform a full page refresh while you are running `npm run dev`:
+
+- `app/View/Components/**`
+- `lang/**`
+- `resources/lang/**`
+- `resources/views/**`
+- `routes/**`
 
 Watching the `routes/**` directory is useful if you are utilizing [Ziggy](https://github.com/tighten/ziggy) to generate route links within your application's frontend.
 
@@ -416,6 +462,27 @@ export default defineConfig({
         }),
     ],
 });
+```
+
+<a name="blade-aliases"></a>
+### Aliases
+
+It is common in JavaScript applications to [create aliases](#aliases) to regularly referenced directories. But, you may also create aliases to use in Blade by using the `macro` method on the `Illuminate\Support\Vite` class. Typically, "macros" should be defined within the `boot` method of a [service provider](/docs/{{version}}/providers):
+
+    /**
+     * Bootstrap any application services.
+     *
+     * @return void
+     */
+    public function boot()
+    {
+        Vite::macro('image', fn ($asset) => $this->asset("resources/images/{$asset}"));
+    }
+
+Once a macro has been defined, it can be invoked within your templates. For example, we can use the `image` macro defined above to reference an asset located at `resources/images/logo.png`:
+
+```blade
+<img src="{{ Vite::image('logo.png') }}" alt="Laravel Logo">
 ```
 
 <a name="custom-base-urls"></a>
@@ -484,7 +551,7 @@ abstract class TestCase extends BaseTestCase
 {
     use CreatesApplication;
 
-    public function setUp(): void// [tl! add:start]
+    protected function setUp(): void// [tl! add:start]
     {
         parent::setUp();
 
@@ -657,3 +724,42 @@ Vite::useStyleTagAttributes(fn (string $src, string $url, array|null $chunk, arr
 
 > **Warning**  
 > The `$chunk` and `$manifest` arguments will be `null` while the Vite development server is running.
+
+<a name="advanced-customization"></a>
+## Advanced Customization
+
+Out of the box, Laravel's Vite plugin uses sensible conventions that should work for the majority of applications; however, sometimes you may need to customize Vite's behavior. To enable additional customization options, we offer the following methods and options which can be used in place of the `@vite` Blade directive:
+
+```blade
+<!doctype html>
+<head>
+    {{-- ... --}}
+
+    {{
+        Vite::useHotFile(storage_path('vite.hot')) // Customize the "hot" file...
+            ->useBuildDirectory('bundle') // Customize the build directory...
+            ->useManifestFilename('assets.json') // Customize the manifest filename...
+            ->withEntryPoints(['resources/js/app.js']) // Specify the entry points...
+    }}
+</head>
+```
+
+Within the `vite.config.js` file, you should then specify the same configuration:
+
+```js
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+
+export default defineConfig({
+    plugins: [
+        laravel({
+            hotFile: 'storage/vite.hot', // Customize the "hot" file...
+            buildDirectory: 'bundle', // Customize the build directory...
+            input: ['resources/js/app.js'], // Specify the entry points...
+        }),
+    ],
+    build: {
+      manifest: 'assets.json', // Customize the manifest filename...
+    },
+});
+```

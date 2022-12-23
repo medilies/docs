@@ -10,7 +10,6 @@
     - [Choosing Your Sail Services](#choosing-your-sail-services)
 - [Initial Configuration](#initial-configuration)
     - [Environment Based Configuration](#environment-based-configuration)
-    - [Directory Configuration](#directory-configuration)
     - [Databases & Migrations](#databases-and-migrations)
 - [Next Steps](#next-steps)
     - [Laravel The Full Stack Framework](#laravel-the-fullstack-framework)
@@ -24,6 +23,9 @@ Laravel is a web application framework with expressive, elegant syntax. A web fr
 Laravel strives to provide an amazing developer experience while providing powerful features such as thorough dependency injection, an expressive database abstraction layer, queues and scheduled jobs, unit and integration testing, and more.
 
 Whether you are new to PHP web frameworks or have years of experience, Laravel is a framework that can grow with you. We'll help you take your first steps as a web developer or give you a boost as you take your expertise to the next level. We can't wait to see what you build.
+
+> **Note**
+> New to Laravel? Check out the [Laravel Bootcamp](https://bootcamp.laravel.com) for a hands-on tour of the framework while we walk you through building your first Laravel application.
 
 <a name="why-laravel"></a>
 ### Why Laravel?
@@ -55,6 +57,14 @@ After you have installed PHP and Composer, you may create a new Laravel project 
 
 ```nothing
 composer create-project laravel/laravel example-app
+```
+
+Or, you may create new Laravel projects by globally installing the Laravel installer via Composer:
+
+```nothing
+composer global require laravel/installer
+
+laravel new example-app
 ```
 
 After the project has been created, start Laravel's local development server using the Laravel's Artisan CLI `serve` command:
@@ -205,11 +215,6 @@ Your `.env` file should not be committed to your application's source control, s
 > **Note**  
 > For more information about the `.env` file and environment based configuration, check out the full [configuration documentation](/docs/{{version}}/configuration#environment-configuration).
 
-<a name="directory-configuration"></a>
-### Directory Configuration
-
-Laravel should always be served out of the root of the "web directory" configured for your web server. You should not attempt to serve a Laravel application out of a subdirectory of the "web directory". Attempting to do so could expose sensitive files that exist within your application.
-
 <a name="databases-and-migrations"></a>
 ### Databases & Migrations
 
@@ -256,6 +261,9 @@ Now that you have created your Laravel project, you may be wondering what to lea
 </div>
 
 How you want to use Laravel will also dictate the next steps on your journey. There are a variety of ways to use Laravel, and we'll explore two primary use cases for the framework below.
+
+> **Note**
+> New to Laravel? Check out the [Laravel Bootcamp](https://bootcamp.laravel.com) for a hands-on tour of the framework while we walk you through building your first Laravel application.
 
 <a name="laravel-the-fullstack-framework"></a>
 ### Laravel The Full Stack Framework

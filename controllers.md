@@ -13,6 +13,7 @@
     - [Scoping Resource Routes](#restful-scoping-resource-routes)
     - [Localizing Resource URIs](#restful-localizing-resource-uris)
     - [Supplementing Resource Controllers](#restful-supplementing-resource-controllers)
+    - [Singleton Resource Controllers](#singleton-resource-controllers)
 - [Dependency Injection & Controllers](#dependency-injection-and-controllers)
 
 <a name="introduction"></a>
@@ -31,8 +32,7 @@ Let's take a look at an example of a basic controller. Note that the controller 
     <?php
 
     namespace App\Http\Controllers;
-
-    use App\Http\Controllers\Controller;
+    
     use App\Models\User;
 
     class UserController extends Controller
@@ -70,8 +70,7 @@ If a controller action is particularly complex, you might find it convenient to 
     <?php
 
     namespace App\Http\Controllers;
-
-    use App\Http\Controllers\Controller;
+    
     use App\Models\User;
 
     class ProvisionServer extends Controller
@@ -184,6 +183,19 @@ Typically, a 404 HTTP response will be generated if an implicitly bound resource
             ->missing(function (Request $request) {
                 return Redirect::route('photos.index');
             });
+
+<a name="soft-deleted-models"></a>
+#### Soft Deleted Models
+
+Typically, implicit model binding will not retrieve models that have been [soft deleted](/docs/{{version}}/eloquent#soft-deleting), and will instead return a 404 HTTP response. However, you can instruct the framework to allow soft deleted models by invoking the `withTrashed` method when defining your resource route:
+
+    use App\Http\Controllers\PhotoController;
+
+    Route::resource('photos', PhotoController::class)->withTrashed();
+
+Calling `withTrashed` with no arguments will allow soft deleted models for the `show`, `edit`, and `update` resource routes. You may specify a subset of these routes by passing an array to the `withTrashed` method:
+
+    Route::resource('photos', PhotoController::class)->withTrashed(['show']);
 
 <a name="specifying-the-resource-model"></a>
 #### Specifying The Resource Model
@@ -363,6 +375,75 @@ If you need to add additional routes to a resource controller beyond the default
 
 > **Note**  
 > Remember to keep your controllers focused. If you find yourself routinely needing methods outside of the typical set of resource actions, consider splitting your controller into two, smaller controllers.
+
+<a name="singleton-resource-controllers"></a>
+### Singleton Resource Controllers
+
+Sometimes, your application will have resources that may only have a single instance. For example, a user's "profile" can be edited or updated, but a user may not have more than one "profile". Likewise, an image may have a single "thumbnail". These resources are called "singleton resources", meaning one and only one instance of the resource may exist. In these scenarios, you may register a "singleton" resource controller:
+
+```php
+use App\Http\Controllers\ProfileController;
+use Illuminate\Support\Facades\Route;
+
+Route::singleton('profile', ProfileController::class);
+```
+
+The singleton resource definition above will register the following routes. As you can see, "creation" routes are not registered for singleton resources, and the registered routes do not accept an identifier since only one instance of the resource may exist:
+
+Verb      | URI                               | Action       | Route Name
+----------|-----------------------------------|--------------|---------------------
+GET       | `/profile`                        | show         | profile.show
+GET       | `/profile/edit`                   | edit         | profile.edit
+PUT/PATCH | `/profile`                        | update       | profile.update
+
+Singleton resources may also be nested within a standard resource:
+
+```php
+Route::singleton('photos.thumbnail', ThumbnailController::class);
+```
+
+In this example, the `photos` resource would receive all of the [standard resource routes](#actions-handled-by-resource-controller); however, the `thumbnail` resource would be a singleton resource with the following routes:
+
+| Verb      | URI                              | Action  | Route Name               |
+|-----------|----------------------------------|---------|--------------------------|
+| GET       | `/photos/{photo}/thumbnail`      | show    | photos.thumbnail.show    |
+| GET       | `/photos/{photo}/thumbnail/edit` | edit    | photos.thumbnail.edit    |
+| PUT/PATCH | `/photos/{photo}/thumbnail`      | update  | photos.thumbnail.update  |
+
+<a name="creatable-singleton-resources"></a>
+#### Creatable Singleton Resources
+
+Occasionally, you may want to define creation and storage routes for a singleton resource. To accomplish this, you may invoke the `creatable` method when registering the singleton resource route:
+
+```php
+Route::singleton('photos.thumbnail', ThumbnailController::class)->creatable();
+```
+
+In this example, the following routes will be registered. As you can see, a `DELETE` route will also be registered for creatable singleton resources:
+
+| Verb      | URI                                | Action  | Route Name               |
+|-----------|------------------------------------|---------|--------------------------|
+| GET       | `/photos/{photo}/thumbnail/create` | create  | photos.thumbnail.create  |
+| POST      | `/photos/{photo}/thumbnail`        | store   | photos.thumbnail.store   |
+| GET       | `/photos/{photo}/thumbnail`        | show    | photos.thumbnail.show    |
+| GET       | `/photos/{photo}/thumbnail/edit`   | edit    | photos.thumbnail.edit    |
+| PUT/PATCH | `/photos/{photo}/thumbnail`        | update  | photos.thumbnail.update  |
+| DELETE    | `/photos/{photo}/thumbnail`        | destroy | photos.thumbnail.destroy |
+
+<a name="api-singleton-resources"></a>
+#### API Singleton Resources
+
+The `apiSingleton` method may be used to register a singleton resource that will be manipulated via an API, thus rendering the `create` and `edit` routes unnecessary:
+
+```php
+Route::apiSingleton('profile', ProfileController::class);
+```
+
+Of course, API singleton resources may also be `creatable`, which will register `store` and `destroy` routes for the resource:
+
+```php
+Route::apiSingleton('photos.thumbnail', ProfileController::class)->creatable();
+```
 
 <a name="dependency-injection-and-controllers"></a>
 ## Dependency Injection & Controllers
